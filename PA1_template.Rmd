@@ -1,12 +1,5 @@
----
-title: "Assignment 1. Activity Monitoring Data"
-output:
-  html_document:
-    theme: cerulean
-  pdf_document: default
-  word_document: default
-author: Taras Hnot
----
+Assignment 1. Activity Monitoring Data
+======================================
 
 ###Loading and preprocessing the data
 
@@ -18,7 +11,7 @@ library(ggplot2)
 library(gridExtra)
 ```
 
-```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment="", cache=TRUE}
 #Creating temporary file in memory
 temp <- tempfile()
 #Just to use download.file in R Markdown
