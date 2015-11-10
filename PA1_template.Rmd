@@ -11,7 +11,7 @@ library(ggplot2)
 library(gridExtra)
 ```
 
-```{r echo=TRUE, warning=FALSE, info = FALSE, comment="", cache=TRUE}
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
 #Creating temporary file in memory
 temp <- tempfile()
 #Just to use download.file in R Markdown
