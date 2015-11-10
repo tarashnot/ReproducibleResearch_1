@@ -1,0 +1,227 @@
+---
+title: "Assignment 1. Activity Monitoring Data"
+output:
+  html_document:
+    theme: cerulean
+  pdf_document: default
+  word_document: default
+author: Taras Hnot
+---
+
+###Loading and preprocessing the data
+
+1. Firstly, let's read csv file from the web:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+#Loading library
+library(plyr)
+library(ggplot2)
+library(gridExtra)
+```
+
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+#Creating temporary file in memory
+temp <- tempfile()
+#Just to use download.file in R Markdown
+setInternet2(use = TRUE)
+#Download zip file in temp
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", temp)
+#Unzip temp file and read "activity.csv" from it to activity variable
+activity <- read.csv(unz(temp, "activity.csv"))
+#Delete temp file
+unlink(temp)
+```
+
+2. Explore size of data.frame:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+dim(activity)
+```
+
+3. Explore type of variables in **activity** data.frame:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+str(activity)
+```
+So, **steps** variable is correct type. It is better to change type of **date** to some date type. **interval** variable represents minutes interval. It is better to transform this column to two columns, one of which will represent start hour, second - start minute.
+
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+#Tranforming date variable to Date type
+activity$date <- as.Date(activity$date)
+
+#Adding two variables based on interval variable
+activity$interval <- as.character(activity$interval)
+activity$interval <- sapply(activity$interval, FUN = function(element) return(paste(as.character(c(rep(0, (4-nchar(element))), element)), collapse = "")))
+
+activity$start_hour <- as.integer(sapply(activity$interval, FUN = function (element) return (substr(element, 1, 2))))
+activity$start_minute <- as.integer(sapply(activity$interval, FUN = function (element) return (substr(element, 3, 4))))
+```
+
+Now, data looks like:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+head(activity)
+```
+
+And type of variables:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+str(activity)
+```
+
+***
+
+###What is mean total number of steps taken per day?
+
+1. Total number of steps per day:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+total_steps <- ddply(activity, ~date, summarise, Total_steps=sum(steps, na.rm = TRUE))
+total_steps
+```
+
+2. Histogram of total number of steps:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+rng <- range(total_steps$Total_steps)
+p1 <- qplot(Total_steps, 
+      data=total_steps,
+      geom="histogram", 
+      breaks = seq(rng[1], rng[2], by =1700),
+      main = "Histogram of number of\n steps per day",
+      xlab = "Steps per day",
+      ylab = "Days"
+      )
+p1
+```
+
+3. Mean and median of the total number of steps taken per day:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+#Mean number of total number of steps per day
+mean(total_steps$Total_steps, na.rm = TRUE)
+#Median number of total number of steps per day
+median(total_steps$Total_steps, na.rm = TRUE)
+```
+
+***
+###What is the average daily activity pattern?
+
+1. Average number of steps per 5 minute interval:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+activity$minute_from_00 <- activity$start_hour * 60 + activity$start_minute
+avr_steps_5min <- ddply(activity, ~minute_from_00, summarise, Avr_steps=mean(steps, na.rm = TRUE))
+head(avr_steps_5min)
+```
+
+2. Plotting average values per 5 minutes:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+p2 <- qplot(minute_from_00,
+      Avr_steps,
+      data=avr_steps_5min,
+      geom=c("point", "path"),
+      main = "Average of number of\n steps per 5 minute interval",
+      xlab = "Minutes from 00:00",
+      ylab = "Average number of steps"
+      )
+p2
+```
+
+3. 5 minutes interval with max number of average steps:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+avr_steps_5min[which.max(avr_steps_5min$Avr_steps),]
+```
+So, max number of steps at average is taken place from 08:35 to 08:40.
+
+***
+
+###Imputing missing values
+
+1. Total number of missing values in the dataset:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+#Number of NAs in activity data.frame
+apply(activity[,1:3], 2, FUN = function(column) return(sum(is.na(column))))
+```
+So, there are 2304 NAs in **steps** column and no NAs in **date** and **interval** columns.
+
+2. Replacing NAs in **steps** column with average number of steps per 5 minute interval:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+activity_noNA <- activity
+
+for (i in 1:nrow(activity_noNA)) {
+        if (is.na(activity_noNA$steps[i])) {
+                activity_noNA$steps[i] <- avr_steps_5min$Avr_steps[avr_steps_5min$minute_from_00 == activity_noNA$minute_from_00[i]]
+        }
+} 
+
+#Number of NAs in activity_noNA data.frame
+apply(activity_noNA[,1:3], 2, FUN = function(column) return(sum(is.na(column))))
+```
+There are no NAs left.
+
+Head of the data now looks like:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+head(activity_noNA)
+```
+
+3. Total number of steps taken each day, calculated based on data with imputed NA:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+total_steps_noNA <- ddply(activity_noNA, ~date, summarise, Total_steps=sum(steps, na.rm = TRUE))
+head(total_steps_noNA)
+```
+
+Two histogram of total number of steps without and with imputed NAs:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+rng <- range(total_steps_noNA$Total_steps)
+p3 <- qplot(Total_steps, 
+      data=total_steps_noNA,
+      geom="histogram", 
+      breaks = seq(rng[1], rng[2], by =1700),
+      main = "Histogram of number of\n steps per day with imputed NA",
+      xlab = "Steps per day",
+      ylab = "Days")
+grid.arrange(p1, p3, ncol=2)
+```
+
+4. Mean and median of the total number of steps taken per day without and with imputed NAs:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+#Mean number of total number of steps per day
+mean(total_steps$Total_steps, na.rm = TRUE)
+mean(total_steps_noNA$Total_steps)
+#Median number of total number of steps per day
+median(total_steps$Total_steps, na.rm = TRUE)
+median(total_steps_noNA$Total_steps)
+```
+
+Imputing has next impact:  
+1. Histogram changed its view a little bit. Now, there are no days with no steps, but more days with ~11000 steps. It as because we changed total number of steps for 8 days;  
+2. Mean and Medium values of steps became the same -> distribution became more normal.
+
+***
+
+###Are there differences in activity patterns between weekdays and weekends?
+
+1. Creating a new factor variable with weekday and more for identifying weekend:
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+Sys.setlocale("LC_TIME", "English")
+```
+
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+activity_noNA$weekday <- factor(weekdays(activity_noNA$date))
+activity_noNA$weekend <- factor(ifelse((activity_noNA$weekday == "Saturday" | activity_noNA$weekday == "Sunday"), "weekend", "weekday"))
+```
+
+
+2. Creating data for weekdays and weekends:
+
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+avr_steps_5min_weekends <- ddply(activity_noNA, .(minute_from_00, weekend), summarise, Avr_steps=mean(steps))
+head(avr_steps_5min_weekends)
+```
+
+Visualizing with one plot, but two series (it is the same as using panel plots):
+```{r echo=TRUE, warning=FALSE, info = FALSE, comment=""}
+qplot(minute_from_00,
+      Avr_steps,
+      color = weekend,
+      data=avr_steps_5min_weekends,
+      geom=c("point", "path"),
+      main = "Average of number of\n steps per 5 minute interval",
+      xlab = "Minutes from 00:00",
+      ylab = "Average number of steps"
+      )
+```
+
+Very interesting pattern could be observed: during weekdays average number of steps is higher for morning hours, where for weekends - day hours. For the evening hours - patterns are very similar, but ~ from 19:00 till 21:00 average number of steps is higher for weekends.
